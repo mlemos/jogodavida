@@ -66,32 +66,33 @@ void setup()   {
   populaUniverso(universo,55);
 
   // Apresenta o universo no display OLED
-  drawGrid(universo);
+  mostraUniverso(universo);
   delay(500);
-
 }
 
 // Laço principal
 void loop() {
-
   // Evolui o universo 
-  evolveUniverse();
-
+  evoluiUniverso();
   // Apresenta o universo evoluido no display OLED
-  drawGrid(universo);
+  mostraUniverso(universo);
   delay(500);
 }
 
-void writeCell(char *ptr, int x, int y, int value ){
+// Escreve um valor (1 ou 0) em uma cêlula X,Y do universo
+// O primeiro parâmetro indica o vetor universo a ser usado.
+void escreveCelula(char *ptr, int x, int y, int valor ){
   int cellPosition = y * LARGURA + x;
   int bytePosition = cellPosition / 8;
   int bitPosition = cellPosition % 8;
   char currentByte = ptr[bytePosition];
-  bitWrite(currentByte,bitPosition,value);
+  bitWrite(currentByte,bitPosition,valor);
   ptr[bytePosition] = currentByte;
 }
 
-int readCell(char *ptr, int x, int y){
+// Lê o valor (1 ou 0) de uma cêlula X,Y do universo
+// O primeiro parâmetro indica o vetor universo a ser usado.
+int leCelula(char *ptr, int x, int y){
   int cellPosition = y * LARGURA + x;
   int bytePosition = cellPosition / 8;
   int bitPosition = cellPosition % 8;
@@ -100,162 +101,146 @@ int readCell(char *ptr, int x, int y){
   return cellValue;
 }
 
-void clearUniverse(char *ptr) {
+// Limpa (seta todas as cêlulas para 0) o universo
+// O parâmetro indica o vetor universo a ser usado.
+void limpaUniverso(char *ptr) {
   for (int i = 0; i < TAMANHO_DO_VETOR_UNIVERSO; ++i)
   {
     ptr[i] = 0;
   }
 }
 
-void populateTestUniverse(char *ptr) {
-  int color = 0;
-  clearUniverse(ptr);
-  for (int y = 0; y < ALTURA; ++y)
-  { 
-    color = (color == 0) ? 1 : 0;
-    for (int x = 0; x < LARGURA; ++x)
-    {
-      color = (color == 0) ? 1 : 0;
-      writeCell(ptr,x,y,color);
-    }
-  }
-}
-
-void populaUniverso(char *ptr, int density) {
-  Serial.print("Populating universo with density = ");
-  Serial.print(density);
-  Serial.print(" ... ");
-
-  clearUniverse(ptr);
-  int population = 0;
-  int threshold = 100 - density;
-  int cellStatus;
+// Popula o universo com cêlulas vivas em posições aleatórias
+// O primeiro parâmetro indica o vetor universo a ser usado.
+// O segund determina a densidade de cêlulas (0-100).
+void populaUniverso(char *ptr, int densidade) {
+  limpaUniverso(ptr);
+  int valorDaCelula;
   for (int x = 0; x < LARGURA; ++x)
   {
     for (int y = 0; y < ALTURA; ++y)
     {
-      if (random(100) < threshold) { 
-        cellStatus = 0;
+      if (random(100) < (100 - densidade)) { 
+        valorDaCelula = 0; // Celula Morta
       } else {
-        cellStatus = 1;
+        valorDaCelula = 1; // Celula Viva
       }
-      //cellStatus = 0;
-      writeCell(ptr,x,y,cellStatus);
-      population = population + cellStatus;
+      escreveCelula(ptr,x,y,valorDaCelula);
     }
   }
-  //writeCell(ptr,4,4,0);
-  //writeCell(ptr,5,4,1);
-  //writeCell(ptr,6,4,0);
-  //writeCell(ptr,4,5,0);
-  //writeCell(ptr,5,5,0);
-  //writeCell(ptr,6,5,1);
-  //writeCell(ptr,4,6,1);
-  //writeCell(ptr,5,6,1);
-  //writeCell(ptr,6,6,1);
-  Serial.print("Population = ");
-  Serial.println(population);
 }
 
-void serialDrawGrid(char *ptr) {
-  Serial.println("====================================");
+// Mostra o universo passado como parâmetro na serial
+// Se você não possui um display OLED, pode modificar o programa
+// para mostrar tudo na serial.
+void mostraUniversoNaSerial(char *ptr) {
+  Serial.println();
   for (int y = 0; y < ALTURA; ++y)
   {
     for (int x = 0; x < LARGURA; ++x)
     {
-      Serial.print(readCell(ptr,x,y));
+      Serial.print(leCelula(ptr,x,y));
     }
     Serial.println();
   }
-  Serial.println("====================================");
+  Serial.println();
 }
 
-void drawGrid(char *ptr){
+// Mostra o universo passado como parâmetro no display OLED
+void mostraUniverso(char *ptr){
   for (int y = 0; y < ALTURA; ++y)
   {
     for (int x = 0; x < LARGURA; ++x)
     {
-      int color = readCell(ptr,x,y);
+      int color = leCelula(ptr,x,y);
       display.fillRect(x * ESCALA,y * ESCALA,ESCALA,ESCALA,color);
     }
   }
   display.display();  
 }
 
-int countNeighbours(char *ptr, int x, int y) {
-  int neighbours = 0;
-  int left, right, top, bottom;
+// Conta o números de vizinhos (cêlulas vivas) de uma cêlula
+// O primeiro parâmetro indica o vetor universo a ser usado.
+int contaVizinhos(char *ptr, int x, int y) {
+  int vizinhos = 0;
+  int esquerda, direita, cima, baixo;
+  // Calcula os valores x e y das cêlulas vizinhas.
+  // Estamos usando uma implementação onde a parte de cima do universo
+  // é conectada com a de baixo. E a esquerda é conectada com a direita.
+  // Então aqui vemos se temos que lidar com isto ou não.
   if (x == 0) {
-    left = LARGURA - 1;
-    right = x + 1;
+    esquerda = LARGURA - 1;
+    direita = x + 1;
   } else if (x == (LARGURA - 1) ) {
-    left = x - 1;
-    right = 0;    
+    esquerda = x - 1;
+    direita = 0;    
   } else {
-    left = x - 1;
-    right = x + 1;
+    esquerda = x - 1;
+    direita = x + 1;
   }
   if (y == 0) {
-    top = ALTURA - 1;
-    bottom = y + 1;
+    cima = ALTURA - 1;
+    baixo = y + 1;
   } else if (y == (ALTURA - 1) ) {
-    top = y - 1;
-    bottom = 0;    
+    cima = y - 1;
+    baixo = 0;    
   } else {
-    top = y - 1;
-    bottom = y + 1;
+    cima = y - 1;
+    baixo = y + 1;
   }
-  neighbours = neighbours + readCell(ptr,left ,top   );  
-  neighbours = neighbours + readCell(ptr,x    ,top   );  
-  neighbours = neighbours + readCell(ptr,right,top   );  
-  neighbours = neighbours + readCell(ptr,left ,y     );  
-  neighbours = neighbours + readCell(ptr,right,y     );  
-  neighbours = neighbours + readCell(ptr,left ,bottom);  
-  neighbours = neighbours + readCell(ptr,x    ,bottom);  
-  neighbours = neighbours + readCell(ptr,right,bottom);
-  return neighbours; 
+  // Lê o valor de cada uma das 8 cêlulas vizinhas e soma para
+  // encontrar o número de vizinhos da cêlula em questão.
+  vizinhos = vizinhos + leCelula(ptr,esquerda ,cima   );  
+  vizinhos = vizinhos + leCelula(ptr,x    ,cima   );  
+  vizinhos = vizinhos + leCelula(ptr,direita,cima   );  
+  vizinhos = vizinhos + leCelula(ptr,esquerda ,y     );  
+  vizinhos = vizinhos + leCelula(ptr,direita,y     );  
+  vizinhos = vizinhos + leCelula(ptr,esquerda ,baixo);  
+  vizinhos = vizinhos + leCelula(ptr,x    ,baixo);  
+  vizinhos = vizinhos + leCelula(ptr,direita,baixo);
+  return vizinhos; 
 }
 
-int newState(int currentState, int neighbours){
-  if (currentState == 1)
-  { // Cell is Alive
-    if (neighbours < 2) {
-      return 0;
-    } else if ((neighbours == 2) || (neighbours == 3)) {
-      return 1;
+// Calcula o novo estado de um cêlula aplicando as regras do Jogo da Vida
+// O primeiro parâmetro indica o vetor universo a ser usado.
+int novoEstado(char *ptr, int x, int y){
+  int estadoAtual = leCelula(ptr,x,y);
+  int novoEstado;
+  int vizinhos = contaVizinhos(ptr,x,y);
+  // Aplica as regras do Jogo da Vida
+  if (estadoAtual == 1)
+  { // Cêlula está viva
+    if (vizinhos < 2) {
+      novoEstado = 0; // Cêlula morre por solidão
+    } else if (vizinhos > 3) {
+      novoEstado = 0; // Cêlula morre por superpopulação
     } else {
-      return 0;
+      novoEstado = 1; // Cêlula continua viva (população ideal)
     }
-  } else { // Cell is Dead
-    if (neighbours == 3) {
-      return 1;
+  } else { // Cêlula está morta
+    if (vizinhos == 3) {
+      novoEstado = 1; // Cêlula torna-se viva (reprodução)
     } else {
-      return 0;
+      novoEstado = 0; // Cêlula continua morta
     }
   }
+  return novoEstado;
 }
 
-void evolveUniverse(){
-  clearUniverse(novoUniverso);
+// Evoluir o universo para a próxima geração
+// Calcula os novos estados de todas as cêlulas do universo aplicando
+// as regras do Jogo da Vida para cada uma delas.
+void evoluiUniverso(){
+  limpaUniverso(novoUniverso);
   for (int y = 0; y < ALTURA; ++y)
   {
     for (int x = 0; x < LARGURA; ++x)
     {
-      int currentState = readCell(universo,x,y);
-      int neighbours = countNeighbours(universo,x,y);
-      //Serial.print(neighbours);
-      writeCell(novoUniverso,x,y,newState(currentState,neighbours));
+      escreveCelula(novoUniverso,x,y,novoEstado(universo,x,y));
     }
-    //Serial.println();
   }
   for (int i = 0; i < TAMANHO_DO_VETOR_UNIVERSO; ++i)
     {
       universo[i] = novoUniverso[i];
     }  
 }
-
-
-
-
-
-
