@@ -227,7 +227,7 @@ int novoEstado(char *ptr, int x, int y){
   return novoEstado;
 }
 
-// Evoluir o universo para a próxima geração
+// Evolui o universo para a próxima geração
 // Calcula os novos estados de todas as cêlulas do universo aplicando
 // as regras do Jogo da Vida para cada uma delas.
 void evoluiUniverso(){
