@@ -1,4 +1,4 @@
-/***************************************************
+/**************************************************************************
   * Jogo da Vida
   * Uma implementação do Jogo da Vida do Conway para Arduino.
   * An implementation of Conway's Game of Life for Arduino.
@@ -9,7 +9,7 @@
   * 
   * MIT License
   * Copyright (c) 2016 Manoel Lemos
-  ****************************************************/
+  *************************************************************************/
 
 // Bibliotecas necessárias para o display OLED
 #include <SPI.h>
